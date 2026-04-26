@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Driver Location Tracker</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f0f1a;
+      color: #e0e0ff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border: 1px solid #2a2a5a;
+      border-radius: 20px;
+      padding: 40px 30px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 8px 40px rgba(100, 100, 255, 0.15);
+      text-align: center;
+    }
+
+    .icon {
+      font-size: 56px;
+      margin-bottom: 12px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #a0a0ff;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #6666aa;
+      margin-bottom: 30px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .info-box {
+      background: #0d0d22;
+      border: 1px solid #2a2a5a;
+      border-radius: 12px;
+      padding: 16px 12px;
+    }
+
+    .info-box .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #5555aa;
+      margin-bottom: 6px;
+    }
+
+    .info-box .value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #c0c0ff;
+      word-break: break-all;
+    }
+
+    .status-box {
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      transition: all 0.3s ease;
+      margin-bottom: 20px;
+    }
+
+    .status-waiting {
+      background: #1a1a2e;
+      border: 1px solid #2a2a5a;
+      color: #6666aa;
+    }
+
+    .status-sending {
+      background: #1a1a00;
+      border: 1px solid #5a5a00;
+      color: #dddd00;
+    }
+
+    .status-sent {
+      background: #001a0d;
+      border: 1px solid #005a2a;
+      color: #00dd77;
+    }
+
+    .status-error {
+      background: #1a0000;
+      border: 1px solid #5a0000;
+      color: #ff4444;
+    }
+
+    .counter {
+      font-size: 0.8rem;
+      color: #5555aa;
+    }
+
+    .counter span {
+      color: #a0a0ff;
+      font-weight: 700;
+    }
+
+    .ngrok-notice {
+      margin-top: 20px;
+      font-size: 0.75rem;
+      color: #444466;
+      padding: 10px;
+      background: #0d0d1a;
+      border-radius: 8px;
+      border: 1px dashed #2a2a44;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🚗</div>
+    <h1>Driver Tracker</h1>
+    <p class="subtitle">Real-time location broadcasting</p>
+
+    <div class="info-grid">
+      <div class="info-box">
+        <div class="label">Latitude</div>
+        <div class="value" id="lat">—</div>
+      </div>
+      <div class="info-box">
+        <div class="label">Longitude</div>
+        <div class="value" id="lng">—</div>
+      </div>
+      <div class="info-box">
+        <div class="label">Accuracy</div>
+        <div class="value" id="accuracy">—</div>
+      </div>
+      <div class="info-box">
+        <div class="label">Driver ID</div>
+        <div class="value" id="driverIdDisplay">driver1</div>
+      </div>
+    </div>
+    <button onclick="startTracking()" style="
+      margin-bottom: 15px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: none;
+      background: #4f46e5;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    ">
+      📍 Enable Location Tracking
+    </button>
+    <div class="status-box status-waiting" id="statusBox">
+      ⏳ Waiting for GPS...
+    </div>
+
+    <div class="counter">Updates sent: <span id="count">0</span></div>
+
+    <div class="ngrok-notice">
+      ⚠️ Make sure to set your ngrok URL inside <code>driver.html</code> before opening on mobile.
+    </div>
+  </div>
+
+ <script>
+  const NGROK_URL = "https://5871-2401-4900-a441-d49c-74fa-7f81-ffad-21a9.ngrok-free.app";
+  const DRIVER_ID = "driver1";
+
+  let updateCount = 0;
+  let watchId = null;
+
+  const latEl       = document.getElementById('lat');
+  const lngEl       = document.getElementById('lng');
+  const accuracyEl  = document.getElementById('accuracy');
+  const statusBox   = document.getElementById('statusBox');
+  const countEl     = document.getElementById('count');
+
+  function setStatus(type, message) {
+    statusBox.className = 'status-box status-' + type;
+    statusBox.textContent = message;
+  }
+
+  function sendLocation(lat, lng) {
+    setStatus('sending', '📡 Sending...');
+
+    const endpoint = NGROK_URL.replace(/\/$/, '') + '/update-location';
+
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverId: DRIVER_ID, lat, lng })
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Server responded with ' + res.status);
+        return res.json();
+      })
+      .then(data => {
+        updateCount++;
+        countEl.textContent = updateCount;
+        setStatus('sent', '✅ Sent — ' + new Date().toLocaleTimeString());
+        console.log('[Location] Sent OK →', data);
+      })
+      .catch(err => {
+        setStatus('error', '❌ Error: ' + err.message);
+        console.error('[Location] Send failed:', err);
+      });
+  }
+
+  function startTracking() {
+    if (!navigator.geolocation) {
+      setStatus('error', '❌ Geolocation not supported');
+      return;
+    }
+
+    setStatus('waiting', '🔄 Getting location...');
+
+    // First call getCurrentPosition to trigger permission prompt
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setStatus('sent', '✅ Permission granted. Tracking...');
+
+        // Now start continuous tracking
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude, longitude, accuracy } = pos.coords;
+
+            latEl.textContent      = latitude.toFixed(6);
+            lngEl.textContent      = longitude.toFixed(6);
+            accuracyEl.textContent = accuracy.toFixed(1) + 'm';
+
+            sendLocation(latitude, longitude);
+          },
+          handleError,
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      },
+      handleError,
+      { enableHighAccuracy: true }
+    );
+  }
+
+  function handleError(error) {
+    console.error('[Location] Error:', error);
+
+    switch (error.code) {
+      case error.PERMISSION_DENIED:
+        setStatus('error', '❌ Permission denied. Click button again.');
+        break;
+      case error.POSITION_UNAVAILABLE:
+        setStatus('error', '❌ Location unavailable.');
+        break;
+      case error.TIMEOUT:
+        setStatus('error', '❌ Timeout. Try again.');
+        break;
+      default:
+        setStatus('error', '❌ Error: ' + error.message);
+    }
+  }
+</script>
+</body>
+</html>
