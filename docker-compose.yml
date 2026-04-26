@@ -1,27 +1,69 @@
 version: '3.8'
 
 services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ecommerce
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
   user-service:
     build: ./user-service
     container_name: user-service
     ports:
       - "50051:50051"
+      - "3001:3001"
+    environment:
+      - DB_HOST=mysql-db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ecommerce
+    depends_on:
+      mysql-db:
+        condition: service_healthy
 
   product-service:
     build: ./product-service
     container_name: product-service
     ports:
       - "50052:50052"
+      - "3002:3002"
+    environment:
+      - DB_HOST=mysql-db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ecommerce
+    depends_on:
+      mysql-db:
+        condition: service_healthy
 
   order-service:
     build: ./order-service
     container_name: order-service
     ports:
       - "3003:3003"
+    environment:
+      - DB_HOST=mysql-db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=ecommerce
     depends_on:
-      - user-service
-      - product-service
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+      mysql-db:
+        condition: service_healthy
 
   api-gateway:
     build: ./api-gateway
@@ -29,4 +71,11 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - order-service
+      order-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+volumes:
+  mysql-data:

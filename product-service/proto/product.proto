@@ -12,4 +12,5 @@ message ProductResponse {
   string id = 1;
   string name = 2;
   float price = 3;
+  string description = 4;
 }
