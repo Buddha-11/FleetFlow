@@ -4,297 +4,201 @@
 
 ## 📌 Overview
 
-This project implements a simple **E-commerce microservices architecture** using:
-
-- API Gateway
-- User Service
-- Product Service
-- Order Service
+This project implements a **production-like E-commerce microservices architecture**. Originally demonstrating basic microservices concepts, it has been expanded to include persistent databases, secure authentication, real-time location tracking, and an Android mobile client.
 
 It demonstrates:
 - Microservice-based design
 - REST and gRPC hybrid communication
-- Docker containerization
-- Service-to-service communication
+- **MySQL Database Integration** via Docker volumes
+- **Role-Based Authentication (JWT)**
+- **Real-time Location Tracking Service**
+- **Android Client Integration (Kotlin)**
 
 ---
 
 ## 🏗️ High-Level Architecture
 
-```
-Client
-  ↓ (REST)
-API Gateway
-  ↓ (REST)
-Order Service
-  ↓ (gRPC)        ↓ (gRPC)
-User Service   Product Service
-```
-<img width="576" height="521" alt="image" src="https://github.com/user-attachments/assets/348abefc-3d30-4daf-89cb-6f845ccd49ff" />
-
-
----
-
-## 🔄 Request Flow
-
-### 🔹 Step 1: Authentication
-- Client sends request to `/login`
-- API Gateway generates a JWT token
-- Token is returned to client
-
----
-
-### 🔹 Step 2: Place Order
-Client sends:
-
-```
-POST /order
-Authorization: Bearer <token>
-
-{
-  "userId": "1",
-  "productId": "1"
-}
+```text
+Client (Web/Postman)                     Driver App (Android)
+  ↓ (REST)                                     ↓ (REST via ngrok HTTPS)
+API Gateway                               Location Service (Port 4000)
+  ↓ (REST)                                     ↓ (Logs)
+Services (User, Product, Order)           Real-time Tracking Data
+  ↓ (gRPC for validation)
+MySQL Database (Persistent Volume)
 ```
 
 ---
 
-### 🔹 Step 3: API Gateway
-- Verifies JWT token
-- If valid → forwards request to Order Service
-- Communication: **REST**
+## ✨ Key Features
 
----
+### 1. 🗄️ Database Integration
+- **MySQL** running via Docker container with a persistent volume (`mysql-data`).
+- Tables for `Users`, `Products`, and `Orders` initialized automatically via `init.sql`.
+- Provides reliable, persistent storage replacing older in-memory data arrays.
 
-### 🔹 Step 4: Order Service
-- Receives request
-- Extracts:
-  - userId
-  - productId
-- Calls:
-  - User Service (gRPC)
-  - Product Service (gRPC)
+### 2. 🔐 Role-Based Authentication
+- Secure JWT-based authentication handled centrally by the API Gateway.
+- Uses `bcrypt` for password hashing.
+- Two explicit roles:
+  - **ADMIN**: Can add new products (`POST /admin/product`).
+  - **USER**: Can browse products (`GET /products`) and place orders (`POST /order`).
+- Protected routes ensure unauthorized access is blocked.
 
----
+### 3. 📍 Location Tracking Service
+- A dedicated microservice (`location-service/`) listening on port 4000.
+- Exposes a REST endpoint `POST /update-location` to receive live GPS coordinates.
+- Logs driver data directly into Docker for real-time tracking visualization.
 
-### 🔹 Step 5: Internal Communication (gRPC)
-
-#### ➤ Order → User Service
-```
-GetUser({ id: userId })
-```
-
-#### ➤ Order → Product Service
-```
-GetProduct({ id: productId })
-```
-
----
-
-### 🔹 Step 6: Response Aggregation
-- Order Service combines:
-  - User data
-  - Product data
-- Creates final response
-
----
-
-### 🔹 Step 7: Final Response
-
-```
-Order Service → API Gateway → Client
-```
-
----
-
-## 🌐 Communication Protocols
-
-### 🔹 REST (HTTP + JSON)
-Used for:
-- Client → API Gateway
-- API Gateway → Order Service
-
-**Why REST?**
-- Easy to use
-- Standard HTTP protocol
-- Works with browsers/Postman
-
----
-
-### 🔹 gRPC (Protocol Buffers)
-Used for:
-- Order Service → User Service
-- Order Service → Product Service
-
-**Why gRPC?**
-- Faster than REST
-- Uses binary format
-- Strongly typed using `.proto` files
-
----
-
-## 🔧 Services Description
-
-### 🔹 API Gateway
-- Entry point for all requests
-- Handles authentication (JWT)
-- Routes requests to Order Service
-
----
-
-### 🔹 User Service
-- Manages user data
-- Provides user details via gRPC
-
----
-
-### 🔹 Product Service
-- Manages product data
-- Provides product details via gRPC
-
----
-
-### 🔹 Order Service
-- Core business logic
-- Coordinates between services
-- Fetches user and product data
-- Simulates order placement
-
----
-
-## 🔗 Service Communication
-
-| From            | To              | Protocol |
-|-----------------|----------------|----------|
-| Client          | API Gateway    | REST     |
-| API Gateway     | Order Service  | REST     |
-| Order Service   | User Service   | gRPC     |
-| Order Service   | Product Service| gRPC     |
+### 4. 📱 Driver App (Android)
+- An Android application built with **Kotlin** and XML UI located in `driver-app/`.
+- Uses Google Play Services Location API.
+- Captures high-accuracy GPS coordinates and broadcasts them to the backend Location Service using a secure `ngrok` tunnel.
 
 ---
 
 ## 🐳 Docker Setup
 
-Each service runs in its own container.
-
-Docker enables:
-- Isolation of services
-- Easy deployment
-- Internal networking via service names
-
-Example:
-```
-user-service:50051
-product-service:50052
-order-service:3003
-```
+The system is fully containerized. Each service runs in its own isolated environment:
+- `api-gateway` (Port 3000)
+- `user-service` (Port 3001 & gRPC 50051)
+- `product-service` (Port 3002 & gRPC 50052)
+- `order-service` (Port 3003)
+- `location-service` (Port 4000)
+- `mysql-db` (Port 3307 mapped to host, 3306 internal)
 
 ---
 
-## ▶️ How to Run the Project
+## ▶️ Setup Instructions
 
-### 🔹 Step 1: Clone Repository
-```
+### 🔹 1. Clone & Start Backend Services
+```bash
 git clone <repo-url>
-cd ecommerce-docker
-```
-
----
-
-### 🔹 Step 2: Start Services
-```
+cd cec-term-project
 docker-compose up --build
 ```
+*Wait until MySQL logs indicate it is ready for connections before testing.*
+
+### 🔹 2. Expose Location Service to the Internet
+The Driver App needs a secure HTTPS connection to send GPS data from a mobile device.
+```bash
+ngrok http 4000
+```
+*Copy the `https://xxxx.ngrok-free.app` URL provided by ngrok.*
+
+### 🔹 3. Driver App Setup (Android)
+1. Open the `driver-app/` folder in **Android Studio**.
+2. Build the APK or run the app directly on your physical Android device.
+3. Open the app and enter your ngrok URL.
+4. Grant Location Permissions when prompted.
+5. Click **Enable Location Tracking** to start broadcasting.
 
 ---
 
-### 🔹 Step 3: Test APIs
+## 🧪 Testing Guide
 
-#### ➤ Login
+### 🔹 Authentication Flow
+**1. Register an Admin**
+```http
+POST http://localhost:3000/register
+{
+  "name": "Admin",
+  "email": "admin@test.com",
+  "password": "123",
+  "role": "ADMIN"
+}
 ```
+
+**2. Register a User**
+```http
+POST http://localhost:3000/register
+{
+  "name": "User",
+  "email": "user@test.com",
+  "password": "123",
+  "role": "USER"
+}
+```
+
+**3. Login (Retrieve JWT)**
+```http
 POST http://localhost:3000/login
-```
-
-Body:
-```
 {
-  "username": "atharva"
+  "email": "user@test.com",
+  "password": "123"
 }
 ```
 
----
+### 🔹 Admin: Add a Product
+```http
+POST http://localhost:3000/admin/product
+Header: Authorization: Bearer <admin_jwt_token>
 
-#### ➤ Place Order
+{
+  "name": "Gaming Laptop",
+  "price": 1499.99,
+  "description": "High performance laptop"
+}
 ```
+
+### 🔹 User: Fetch Products & Place Order
+**Fetch Products:**
+```http
+GET http://localhost:3000/products
+Header: Authorization: Bearer <user_jwt_token>
+```
+
+**Place Order:**
+```http
 POST http://localhost:3000/order
-```
+Header: Authorization: Bearer <user_jwt_token>
 
-Headers:
-```
-Authorization: Bearer <token>
-```
-
-Body:
-```
 {
-  "userId": "1",
-  "productId": "1"
+  "productId": 1
 }
+```
+*(The `userId` is securely extracted from the JWT token by the API Gateway).*
+
+### 🔹 Location Tracking
+Once the Android Driver app is running and broadcasting, check the location service logs:
+```bash
+docker-compose logs -f location-service
 ```
 
 ---
 
-## 📦 Example Response
+## 📦 Example Outputs
 
-```
+**Order Response:**
+```json
 {
   "message": "Order placed successfully",
+  "orderId": 1,
   "user": {
-    "id": "1",
-    "name": "Atharva"
+    "id": "2",
+    "name": "User",
+    "email": "user@test.com",
+    "role": "USER"
   },
   "product": {
     "id": "1",
-    "name": "Laptop",
-    "price": 50000
+    "name": "Gaming Laptop",
+    "price": 1499.99,
+    "description": "High performance laptop"
   }
 }
 ```
 
----
-
-## ⚠️ Limitations
-
-- No database (in-memory data)
-- Orders are not persisted
-- No retries or fault tolerance
+**Location Tracking Logs:**
+```text
+location-service  | Driver driver1 → Lat: 28.613900, Lng: 77.209000
+location-service  | Driver driver1 → Lat: 28.614000, Lng: 77.209150
+```
 
 ---
 
-## 📚 Key Learnings
+## ⚠️ Limitations & Future Work
 
-- Microservices architecture design
-- REST vs gRPC usage
-- Docker containerization
-- Service-to-service communication
-- API Gateway pattern
-
----
-
-## 🚀 Future Improvements
-
-- Add database (MongoDB/PostgreSQL)
-- Persist orders
-- Add retry & circuit breaker
-- Add role-based authentication
-- Deploy on Kubernetes
-
----
-
-## 🎯 Conclusion
-
-This project demonstrates a **real-world microservice architecture** where:
-- API Gateway handles authentication and routing
-- Order Service orchestrates logic
-- gRPC ensures efficient internal communication
-- Docker manages deployment
+- **No Real-Time UI Dashboard:** Location tracking currently only outputs to the console logs. A frontend mapping UI (e.g., using WebSockets and Google Maps) is planned.
+- **Location Data Not Persisted:** Live coordinates are processed but not stored in a database (like Redis or PostgreSQL/PostGIS) for historical playback.
+- **No Scaling Configurations (Yet):** Services run as single instances; no load balancers or orchestrators (like Kubernetes) are used at this stage.
