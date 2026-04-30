@@ -99,7 +99,7 @@ In your main terminal, watch the HPA and Pods scale up as CPU usage spikes.
 kubectl get hpa -w
 
 # OR watch pods being created dynamically
-kubectl get pods -l app=api-gateway -w
+kubectl get pods -w
 ```
 *You will see the replica count increase from 1 up to 5 as the load test continues.*
 

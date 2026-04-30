@@ -85,6 +85,7 @@ docker build -t user-service:latest ./user-service
 docker build -t product-service:latest ./product-service
 docker build -t order-service:latest ./order-service
 docker build -t location-service:latest ./location-service
+docker build -t frontend:latest ./frontend
 ```
 
 ### 2. Deploy to Kubernetes
@@ -97,6 +98,15 @@ kubectl apply -f k8s/product-service.yaml
 kubectl apply -f k8s/order-service.yaml
 kubectl apply -f k8s/location-service.yaml
 kubectl apply -f k8s/api-gateway.yaml
+kubectl apply -f k8s/frontend.yaml
+
+# Apply Horizontal Pod Autoscalers (Scaling)
+kubectl apply -f k8s/api-gateway-hpa.yaml
+kubectl apply -f k8s/user-service-hpa.yaml
+kubectl apply -f k8s/product-service-hpa.yaml
+kubectl apply -f k8s/order-service-hpa.yaml
+kubectl apply -f k8s/location-service-hpa.yaml
+kubectl apply -f k8s/frontend-hpa.yaml
 ```
 
 *Wait until all pods are running (`kubectl get pods`).*
