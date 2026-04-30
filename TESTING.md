@@ -87,7 +87,7 @@ Repeat the registration/login steps but use `role: "USER"`. Save the **User Toke
 ### 1. Connect the Driver App
 1.  Open the Driver App on your phone.
 2.  Click **Enable Location Tracking**.
-3.  **Action**: Run `docker logs -f location-service` to show the professor the live GPS coordinates hitting the backend.
+3.  **Action**: Run `docker logs -f location-service` to observe the live GPS coordinates hitting the backend.
 
 ### 2. Check Live Status (In-Transit)
 *   **Request**: `GET http://localhost:3000/order/1/status`
@@ -107,11 +107,11 @@ Move the phone (or manually update coordinates) to match the `deliveryLocation` 
 *   **Headers**: `Authorization: Bearer <USER_TOKEN>`
 *   **Expected Status**: `DELIVERED` ✅
 
-💡 **Proff Tip**: Explain the **Geofencing Logic**: The Order Service uses the **Haversine Formula** to calculate the distance between the driver and the target. If the distance is `< 50 meters`, the status is updated to `DELIVERED` automatically.
+💡 **Technical Note**: The **Geofencing Logic** utilizes the **Haversine Formula** to calculate the precise distance between the driver and the delivery target. If the distance is `< 50 meters`, the status is updated to `DELIVERED` automatically.
 
 ---
 
-## ✅ Final Verification Checklist for Professor
+## ✅ Final System Verification Checklist
 1.  **Database Check**: Show the `Orders` and `Products` tables in MySQL to prove persistence.
 2.  **Stock Check**: Show that the laptop stock decreased from `5` to `4`.
 3.  **Security**: Try to call `POST /admin/product` with a **User Token** to show the **Role-Based Access Control (RBAC)** in action (it should return `403 Forbidden`).

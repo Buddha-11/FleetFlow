@@ -1,204 +1,200 @@
-# 🛒 E-Commerce Microservices (Docker + REST + gRPC)
+# 🚀 Enterprise-Grade Delivery & E-Commerce Microservices
+
+A highly scalable, distributed system demonstrating the complete lifecycle of an e-commerce order—from secure purchasing and atomic inventory management to real-time driver tracking and automated geofenced delivery completion.
+
+This repository serves as a comprehensive showcase of modern backend architecture, utilizing **Node.js, gRPC, MySQL, Docker, and Kubernetes**.
 
 ---
 
-## 📌 Overview
+## 🏛️ System Architecture & Theoretical Foundations
 
-This project implements a **production-like E-commerce microservices architecture**. Originally demonstrating basic microservices concepts, it has been expanded to include persistent databases, secure authentication, real-time location tracking, and an Android mobile client.
+### 1. Microservices Paradigm
+The system is divided into focused, independent services (`api-gateway`, `user-service`, `product-service`, `order-service`, `location-service`).
+*   **Why?** This allows independent scaling, isolated fault domains, and polyglot persistence. If the location tracking service experiences high load, it can be scaled independently of the user authentication service without bringing down the entire system.
 
-It demonstrates:
-- Microservice-based design
-- REST and gRPC hybrid communication
-- **MySQL Database Integration** via Docker volumes
-- **Role-Based Authentication (JWT)**
-- **Real-time Location Tracking Service**
-- **Android Client Integration (Kotlin)**
+### 2. Hybrid Communication: REST + gRPC
+*   **REST (External & Gateway Proxies)**: Used for client-to-gateway communication. It's universally understood by web and mobile clients (like the Android Driver App).
+*   **gRPC (Internal Service-to-Service)**: The `Order Service` uses gRPC to communicate with `User Service` and `Product Service` for validation before placing an order.
+*   **Why?** gRPC uses Protocol Buffers (binary payload) over HTTP/2, making it significantly faster and more lightweight than JSON over REST. It also enforces strict data contracts between microservices, reducing integration bugs.
 
----
-
-## 🏗️ High-Level Architecture
-
-```text
-Client (Web/Postman)                     Driver App (Android)
-  ↓ (REST)                                     ↓ (REST via ngrok HTTPS)
-API Gateway                               Location Service (Port 4000)
-  ↓ (REST)                                     ↓ (Logs)
-Services (User, Product, Order)           Real-time Tracking Data
-  ↓ (gRPC for validation)
-MySQL Database (Persistent Volume)
-```
+### 3. Kubernetes Orchestration & Security Boundaries
+The entire cluster is orchestrated using Kubernetes.
+*   **Zero-Trust Internal Network**: The system is designed so that **only the API Gateway is exposed externally** (via a K8s `NodePort`). All other services (`location`, `order`, `product`, `user`, `mysql`) are isolated within the cluster using `ClusterIP`.
+*   **Why?** This enforces a strict security boundary. Clients cannot bypass authentication or manipulate internal services directly. Even the Android driver app must route its raw GPS data through the API Gateway (`/location/update`), which securely proxies it to the internal `location-service`.
 
 ---
 
-## ✨ Key Features
+## 🧠 Core Business Logic & Algorithms
 
-### 1. 🗄️ Database Integration
-- **MySQL** running via Docker container with a persistent volume (`mysql-data`).
-- Tables for `Users`, `Products`, and `Orders` initialized automatically via `init.sql`.
-- Provides reliable, persistent storage replacing older in-memory data arrays.
+### Atomic Inventory Management (Concurrency Control)
+When an order is placed, the `Product Service` deducts stock.
+*   **The Problem**: If two users order the last item at the exact same millisecond, a race condition could result in negative stock.
+*   **The Solution**: We utilize MySQL's `SELECT ... FOR UPDATE` within a transaction. This creates a pessimistic row-level lock, forcing concurrent requests to queue up and ensuring strict data integrity.
 
-### 2. 🔐 Role-Based Authentication
-- Secure JWT-based authentication handled centrally by the API Gateway.
-- Uses `bcrypt` for password hashing.
-- Two explicit roles:
-  - **ADMIN**: Can add new products (`POST /admin/product`).
-  - **USER**: Can browse products (`GET /products`) and place orders (`POST /order`).
-- Protected routes ensure unauthorized access is blocked.
+### Real-Time Geofencing (The Haversine Formula)
+The system automatically transitions an order from `IN_TRANSIT` to `DELIVERED` without manual driver input.
+*   **How it works**: The `Order Service` polls the `Location Service` for the driver's current coordinates. It then compares this against the order's target `deliveryLocation`.
+*   **The Math**: We implemented the **Haversine Formula** to calculate the great-circle distance between two points on a sphere (the Earth) given their longitudes and latitudes.
+*   **Why?** This allows us to create a precise 50-meter geofence natively in the backend without relying on expensive, rate-limited external APIs (like Google Maps Distance Matrix).
 
-### 3. 📍 Location Tracking Service
-- A dedicated microservice (`location-service/`) listening on port 4000.
-- Exposes a REST endpoint `POST /update-location` to receive live GPS coordinates.
-- Logs driver data directly into Docker for real-time tracking visualization.
-
-### 4. 📱 Driver App (Android)
-- An Android application built with **Kotlin** and XML UI located in `driver-app/`.
-- Uses Google Play Services Location API.
-- Captures high-accuracy GPS coordinates and broadcasts them to the backend Location Service using a secure `ngrok` tunnel.
+### Stateless Role-Based Access Control (RBAC)
+Authentication is handled centrally at the API Gateway using JSON Web Tokens (JWT).
+*   **Why?** JWTs are stateless. The API Gateway doesn't need to query a database to verify a session; it cryptographically verifies the token signature locally.
+*   **Roles**: The gateway enforces roles (`ADMIN` vs `USER`). Only Admins can inject new inventory, while Users can place orders.
 
 ---
 
-## 🐳 Docker Setup
+## 🛠️ Technology Stack
 
-The system is fully containerized. Each service runs in its own isolated environment:
-- `api-gateway` (Port 3000)
-- `user-service` (Port 3001 & gRPC 50051)
-- `product-service` (Port 3002 & gRPC 50052)
-- `order-service` (Port 3003)
-- `location-service` (Port 4000)
-- `mysql-db` (Port 3307 mapped to host, 3306 internal)
+*   **Backend Framework**: Node.js with Express.js
+*   **RPC Framework**: gRPC & Protocol Buffers (`proto3`)
+*   **Database**: MySQL 8.0 (ConfigMap seeded, Persistent Volumes)
+*   **Containerization**: Docker
+*   **Orchestration**: Kubernetes (Deployments, Services, ConfigMaps, Liveness/Readiness Probes)
+*   **Mobile Client**: Android SDK (Kotlin) with Google Play Location Services
+*   **Tunneling**: ngrok (Exposes local K8s NodePort to the public internet)
 
 ---
 
-## ▶️ Setup Instructions
+## 🗄️ Database Schema Overview
 
-### 🔹 1. Clone & Start Backend Services
+The MySQL database (`ecommerce`) is automatically seeded on startup using a Kubernetes `ConfigMap`.
+
+| Table | Core Columns | Relationships / Constraints |
+| :--- | :--- | :--- |
+| **Users** | `id`, `email`, `password` (bcrypt), `role` | `role` is ENUM('ADMIN', 'USER') |
+| **Products**| `id`, `name`, `price`, `stock` | `stock` cannot drop below 0 |
+| **Orders** | `id`, `status`, `delivery_lat`, `delivery_lng`, `driver_id`| FK to `Users(id)` and `Products(id)` |
+
+*Order Status Lifecycle: `PLACED` → `ASSIGNED` → `IN_TRANSIT` → `DELIVERED`*
+
+---
+
+## 🚀 Setup & Deployment Guide (For Evaluation)
+
+### Prerequisites
+1.  **Docker Desktop** installed with **Kubernetes enabled**.
+2.  **ngrok** installed (for tunneling mobile traffic).
+3.  **Android Studio** or an Android device for the Driver App.
+
+### 1. Build Docker Images Locally
+Because we use `imagePullPolicy: Never` in Kubernetes to keep things local, you must build the images first:
 ```bash
-git clone <repo-url>
-cd cec-term-project
-docker-compose up --build
+docker build -t api-gateway:latest ./api-gateway
+docker build -t user-service:latest ./user-service
+docker build -t product-service:latest ./product-service
+docker build -t order-service:latest ./order-service
+docker build -t location-service:latest ./location-service
 ```
-*Wait until MySQL logs indicate it is ready for connections before testing.*
 
-### 🔹 2. Expose Location Service to the Internet
-The Driver App needs a secure HTTPS connection to send GPS data from a mobile device.
+### 2. Deploy to Kubernetes
+Apply the configuration files to start the cluster:
 ```bash
-ngrok http 4000
-```
-*Copy the `https://xxxx.ngrok-free.app` URL provided by ngrok.*
-
-### 🔹 3. Driver App Setup (Android)
-1. Open the `driver-app/` folder in **Android Studio**.
-2. Build the APK or run the app directly on your physical Android device.
-3. Open the app and enter your ngrok URL.
-4. Grant Location Permissions when prompted.
-5. Click **Enable Location Tracking** to start broadcasting.
-
----
-
-## 🧪 Testing Guide
-
-### 🔹 Authentication Flow
-**1. Register an Admin**
-```http
-POST http://localhost:3000/register
-{
-  "name": "Admin",
-  "email": "admin@test.com",
-  "password": "123",
-  "role": "ADMIN"
-}
+kubectl apply -f k8s/mysql-configmap.yaml
+kubectl apply -f k8s/mysql.yaml
+kubectl apply -f k8s/user-service.yaml
+kubectl apply -f k8s/product-service.yaml
+kubectl apply -f k8s/order-service.yaml
+kubectl apply -f k8s/location-service.yaml
+kubectl apply -f k8s/api-gateway.yaml
 ```
 
-**2. Register a User**
-```http
-POST http://localhost:3000/register
-{
-  "name": "User",
-  "email": "user@test.com",
-  "password": "123",
-  "role": "USER"
-}
-```
+*Wait until all pods are running (`kubectl get pods`).*
 
-**3. Login (Retrieve JWT)**
-```http
-POST http://localhost:3000/login
-{
-  "email": "user@test.com",
-  "password": "123"
-}
-```
-
-### 🔹 Admin: Add a Product
-```http
-POST http://localhost:3000/admin/product
-Header: Authorization: Bearer <admin_jwt_token>
-
-{
-  "name": "Gaming Laptop",
-  "price": 1499.99,
-  "description": "High performance laptop"
-}
-```
-
-### 🔹 User: Fetch Products & Place Order
-**Fetch Products:**
-```http
-GET http://localhost:3000/products
-Header: Authorization: Bearer <user_jwt_token>
-```
-
-**Place Order:**
-```http
-POST http://localhost:3000/order
-Header: Authorization: Bearer <user_jwt_token>
-
-{
-  "productId": 1
-}
-```
-*(The `userId` is securely extracted from the JWT token by the API Gateway).*
-
-### 🔹 Location Tracking
-Once the Android Driver app is running and broadcasting, check the location service logs:
+### 3. Expose API Gateway to Mobile
+Run ngrok to expose the Kubernetes `NodePort` (30007) securely:
 ```bash
-docker-compose logs -f location-service
+ngrok http 30007
 ```
+*Copy the `https://xxxx.ngrok-free.app` URL for the Android app.*
 
 ---
 
-## 📦 Example Outputs
+## 🧪 Comprehensive API Evaluation Demo
 
-**Order Response:**
-```json
+Follow these exact steps to demonstrate the full system capabilities to the evaluator. The database is pre-seeded (Passwords are `123`), but creating new entities proves the flow works.
+
+### Phase 1: Admin & Inventory Management
+**1. Register an Admin Account**
+```http
+POST http://localhost:30007/register
 {
-  "message": "Order placed successfully",
-  "orderId": 1,
-  "user": {
-    "id": "2",
-    "name": "User",
-    "email": "user@test.com",
-    "role": "USER"
-  },
-  "product": {
-    "id": "1",
-    "name": "Gaming Laptop",
-    "price": 1499.99,
-    "description": "High performance laptop"
-  }
+  "name": "Admin", "email": "admin2@test.com", "password": "123", "role": "ADMIN"
 }
 ```
 
-**Location Tracking Logs:**
-```text
-location-service  | Driver driver1 → Lat: 28.613900, Lng: 77.209000
-location-service  | Driver driver1 → Lat: 28.614000, Lng: 77.209150
+**2. Login as Admin** *(Copy the `token` from the response)*
+```http
+POST http://localhost:30007/login
+{ "email": "admin2@test.com", "password": "123" }
 ```
+
+**3. Add Inventory (Requires ADMIN Token)**
+```http
+POST http://localhost:30007/admin/product
+Headers: Authorization: Bearer <ADMIN_TOKEN>
+
+{
+  "name": "Sony Headphones", "price": 299.99, "description": "Noise cancelling", "stock": 5
+}
+```
+**Technical Note**: The API Gateway uses a Role-Based Access Control (RBAC) middleware to verify the `role` claim within the JWT payload before forwarding requests to sensitive product management endpoints.
 
 ---
 
-## ⚠️ Limitations & Future Work
+### Phase 2: User Checkout & Order Orchestration
+**4. Register a User Account**
+```http
+POST http://localhost:30007/register
+{
+  "name": "User", "email": "user2@test.com", "password": "123", "role": "USER"
+}
+```
 
-- **No Real-Time UI Dashboard:** Location tracking currently only outputs to the console logs. A frontend mapping UI (e.g., using WebSockets and Google Maps) is planned.
-- **Location Data Not Persisted:** Live coordinates are processed but not stored in a database (like Redis or PostgreSQL/PostGIS) for historical playback.
-- **No Scaling Configurations (Yet):** Services run as single instances; no load balancers or orchestrators (like Kubernetes) are used at this stage.
+**5. Login as User** *(Copy the `token` from the response)*
+```http
+POST http://localhost:30007/login
+{ "email": "user2@test.com", "password": "123" }
+```
+
+**6. Place the Order (Set Geofence Target)**
+*Set the `lat` and `lng` to your physical location (or wherever the driver app will start).*
+```http
+POST http://localhost:30007/order
+Headers: Authorization: Bearer <USER_TOKEN>
+
+{
+  "productId": 4, 
+  "deliveryLocation": { "lat": 25.4270, "lng": 81.7711 }
+}
+```
+**Workflow Insight**: Upon receiving this request, the API Gateway routes it to the `Order Service`. The `Order Service` then initiates high-performance **gRPC** calls to the `User` and `Product` services for validation and utilizes a **pessimistic database lock** to deduct stock before assigning the order to `driver1`.
+
+---
+
+### Phase 3: Real-Time Mobile Tracking
+**7. Start the Driver App**
+1. Open the Android App.
+2. Enter the **ngrok URL** (`https://xxxx.ngrok-free.app`).
+3. Click **Enable Location Tracking**.
+
+**Security Insight**: The mobile app communicates with the public-facing API Gateway. The Gateway then securely proxies the coordinate data to the internal `Location Service`, which remains isolated from the public internet within the Kubernetes cluster.
+
+**8. Verify Logs (Optional)**
+```bash
+kubectl logs -f deployment/location-service
+```
+*You should see the driver coordinates streaming into the cluster.*
+
+---
+
+### Phase 4: Automated Delivery Verification
+**9. Poll the Order Status**
+```http
+GET http://localhost:30007/order/1/status
+Headers: Authorization: Bearer <USER_TOKEN>
+```
+*   **Result 1 (`IN_TRANSIT`)**: If the driver is moving but > 50 meters away, the status dynamically returns `IN_TRANSIT`.
+*   **Result 2 (`DELIVERED`)**: Once the driver app's coordinates match the `deliveryLocation` coordinates (within 50m), the Haversine formula triggers. The database is updated, and the response returns `DELIVERED` automatically.
+
+**System Automation**: This sequence demonstrates the end-to-end automation of the order lifecycle—integrating the API Gateway, internal gRPC orchestration, and real-time mobile GPS tracking to achieve automated fulfillment without manual intervention.
