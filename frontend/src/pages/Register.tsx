@@ -26,54 +26,68 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12 bg-slate-50 dark:bg-slate-950">
       <div className="w-full max-w-md animate-slide-up">
-        <div className="glass rounded-3xl p-8 shadow-2xl shadow-black/40">
+        <div className="card-base p-8 shadow-xl shadow-slate-200/50 dark:shadow-none">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-violet-500/30">
-              <UserPlus size={28} className="text-white" />
+            <div className="w-14 h-14 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center mx-auto mb-5">
+              <UserPlus size={24} className="text-indigo-600 dark:text-indigo-400" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-100">Create account</h1>
-            <p className="text-slate-500 text-sm mt-1">Join SwiftCart today</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Create Account</h1>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Join the platform</p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="relative">
-              <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input type="text" required placeholder="Full name" className="input-field pl-10"
-                value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Full Name</label>
+              <div className="relative">
+                <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" required placeholder="John Doe" className="input-field pl-10"
+                  value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
             </div>
-            <div className="relative">
-              <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input type="email" required placeholder="Email address" className="input-field pl-10"
-                value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Email</label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="email" required placeholder="name@company.com" className="input-field pl-10"
+                  value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              </div>
             </div>
-            <div className="relative">
-              <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input type="password" required placeholder="Password" className="input-field pl-10"
-                value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Password</label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="password" required placeholder="••••••••" className="input-field pl-10"
+                  value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+              </div>
             </div>
 
             {/* Role Selector */}
-            <div className="grid grid-cols-2 gap-3">
-              {(['USER', 'ADMIN'] as const).map(r => (
-                <button key={r} type="button" onClick={() => setForm(f => ({ ...f, role: r }))}
-                  className={`flex items-center justify-center gap-2 py-3 rounded-xl border font-medium text-sm transition-all duration-200 ${form.role === r ? (r === 'ADMIN' ? 'bg-violet-500/20 border-violet-500/50 text-violet-300' : 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300') : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/20'}`}>
-                  {r === 'ADMIN' ? <Shield size={14} /> : <User size={14} />}
-                  {r}
-                </button>
-              ))}
+            <div className="space-y-1 mt-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 block">Account Role</label>
+              <div className="grid grid-cols-2 gap-3">
+                {(['USER', 'ADMIN'] as const).map(r => (
+                  <button key={r} type="button" onClick={() => setForm(f => ({ ...f, role: r }))}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg border font-medium text-sm transition-all duration-200 ${form.role === r ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/20 dark:border-indigo-500/50 dark:text-indigo-300' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'}`}>
+                    {r === 'ADMIN' ? <Shield size={14} /> : <User size={14} />}
+                    {r}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary flex items-center justify-center gap-2 mt-2">
+            <button type="submit" disabled={loading} className="btn-primary flex items-center justify-center gap-2 mt-4 py-3">
               {loading ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <UserPlus size={16} />}
               {loading ? 'Creating...' : 'Create Account'}
             </button>
           </form>
 
-          <p className="text-center text-slate-500 text-sm mt-6">
+          <p className="text-center text-slate-500 dark:text-slate-400 text-sm mt-8">
             Already have an account?{' '}
-            <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">Sign in</Link>
+            <Link to="/login" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">Sign in</Link>
           </p>
         </div>
       </div>

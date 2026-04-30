@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Landing from './pages/Landing';
@@ -13,9 +14,10 @@ import AdminDashboard from './pages/AdminDashboard';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <div className="min-h-screen flex flex-col">
+    <ThemeProvider defaultTheme="light" storageKey="swiftcart-theme">
+      <AuthProvider>
+        <BrowserRouter>
+          <div className="min-h-screen flex flex-col">
           <Navbar />
           <main className="flex-1">
             <Routes>
@@ -31,14 +33,13 @@ export default function App() {
           </main>
         </div>
         <Toaster
-          position="top-right"
-          toastOptions={{
-            style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid rgba(255,255,255,0.1)' },
-            success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
-            error: { iconTheme: { primary: '#f43f5e', secondary: '#fff' } },
-          }}
-        />
-      </BrowserRouter>
-    </AuthProvider>
+            position="top-right"
+            toastOptions={{
+              className: 'dark:bg-slate-800 dark:text-white dark:border-slate-700 bg-white text-slate-900 border-slate-200 border',
+            }}
+          />
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

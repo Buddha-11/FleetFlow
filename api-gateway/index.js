@@ -8,6 +8,12 @@ app.use(express.json());
 
 const SECRET = "mysecretkey";
 
+// Middleware to log the handling pod for load balancing demo
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] Handled by pod: ${process.env.HOSTNAME || 'unknown'} | ${req.method} ${req.url}`);
+  next();
+});
+
 // API Gateway routes
 
 app.post('/register', async (req, res) => {
@@ -130,6 +136,16 @@ app.post('/location/update', async (req, res) => {
   }
 });
 
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'api-gateway' }));
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'api-gateway', pod: process.env.HOSTNAME }));
+
+// ─── Stress Endpoint for HPA Demo ──────────────────────────────────────────
+app.get('/stress', (req, res) => {
+  const start = Date.now();
+  // Simulate CPU load for ~50ms
+  while (Date.now() - start < 50) {
+    Math.sqrt(Math.random() * Math.random());
+  }
+  res.json({ message: "Stress test successful", pod: process.env.HOSTNAME });
+});
 
 app.listen(3000, () => console.log("API Gateway running on 3000"));

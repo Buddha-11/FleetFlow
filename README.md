@@ -1,4 +1,4 @@
-# 🚀 Enterprise-Grade Delivery & E-Commerce Microservices
+# Enterprise-Grade Delivery & E-Commerce Microservices
 
 A highly scalable, distributed system demonstrating the complete lifecycle of an e-commerce order—from secure purchasing and atomic inventory management to real-time driver tracking and automated geofenced delivery completion.
 
@@ -6,7 +6,7 @@ This repository serves as a comprehensive showcase of modern backend architectur
 
 ---
 
-## 🏛️ System Architecture & Theoretical Foundations
+## System Architecture & Theoretical Foundations
 
 ### 1. Microservices Paradigm
 The system is divided into focused, independent services (`api-gateway`, `user-service`, `product-service`, `order-service`, `location-service`).
@@ -24,7 +24,7 @@ The entire cluster is orchestrated using Kubernetes.
 
 ---
 
-## 🧠 Core Business Logic & Algorithms
+## Core Business Logic & Algorithms
 
 ### Atomic Inventory Management (Concurrency Control)
 When an order is placed, the `Product Service` deducts stock.
@@ -44,7 +44,7 @@ Authentication is handled centrally at the API Gateway using JSON Web Tokens (JW
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 *   **Backend Framework**: Node.js with Express.js
 *   **RPC Framework**: gRPC & Protocol Buffers (`proto3`)
@@ -56,7 +56,7 @@ Authentication is handled centrally at the API Gateway using JSON Web Tokens (JW
 
 ---
 
-## 🗄️ Database Schema Overview
+## Database Schema Overview
 
 The MySQL database (`ecommerce`) is automatically seeded on startup using a Kubernetes `ConfigMap`.
 
@@ -70,7 +70,7 @@ The MySQL database (`ecommerce`) is automatically seeded on startup using a Kube
 
 ---
 
-## 🚀 Setup & Deployment Guide (For Evaluation)
+## Setup & Deployment Guide (For Evaluation)
 
 ### Prerequisites
 1.  **Docker Desktop** installed with **Kubernetes enabled**.
@@ -110,7 +110,7 @@ ngrok http 30007
 
 ---
 
-## 🧪 Comprehensive API Evaluation Demo
+## Comprehensive API Evaluation Demo
 
 Follow these exact steps to demonstrate the full system capabilities to the evaluator. The database is pre-seeded (Passwords are `123`), but creating new entities proves the flow works.
 

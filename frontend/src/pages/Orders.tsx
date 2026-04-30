@@ -5,10 +5,10 @@ import client from '../api/client';
 import { LocalOrder, OrderStatusResponse } from '../types';
 
 const STATUS_STYLES: Record<string, { icon: (props: { size: number }) => ReactElement, color: string, label: string }> = {
-  PLACED:     { icon: Clock,         color: 'bg-slate-500/20 text-slate-400 border-slate-500/30',    label: 'Placed' },
-  ASSIGNED:   { icon: Package,       color: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30', label: 'Driver Assigned' },
-  IN_TRANSIT: { icon: Truck,         color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',    label: 'In Transit' },
-  DELIVERED:  { icon: CheckCircle,   color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', label: 'Delivered' },
+  PLACED:     { icon: Clock,         color: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',    label: 'Placed' },
+  ASSIGNED:   { icon: Package,       color: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20', label: 'Driver Assigned' },
+  IN_TRANSIT: { icon: Truck,         color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20',    label: 'In Transit' },
+  DELIVERED:  { icon: CheckCircle,   color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20', label: 'Delivered' },
 };
 
 export default function Orders() {
@@ -40,8 +40,8 @@ export default function Orders() {
       localStorage.setItem('orders', JSON.stringify(orders));
       setStatuses(map);
       setOrders([...orders]);
-      toast.success('Statuses refreshed');
-    } catch { toast.error('Failed to refresh'); }
+      toast.success('Statuses synced with server');
+    } catch { toast.error('Failed to sync statuses'); }
     finally { setRefreshing(false); }
   };
 
@@ -53,19 +53,20 @@ export default function Orders() {
     <div className="max-w-4xl mx-auto px-4 py-10">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-100">My Orders</h1>
-          <p className="text-slate-500 text-sm mt-1">{orders.length} order{orders.length !== 1 ? 's' : ''}</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Order History</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{orders.length} order{orders.length !== 1 ? 's' : ''} recorded</p>
         </div>
         <button onClick={refreshStatuses} disabled={refreshing} className="btn-secondary flex items-center gap-2 text-sm">
           <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-          Refresh
+          Sync Status
         </button>
       </div>
 
       {orders.length === 0 ? (
-        <div className="glass rounded-2xl p-20 text-center">
-          <Package size={40} className="text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-500">No orders yet. Browse products and place your first order!</p>
+        <div className="card-base p-20 text-center flex flex-col items-center justify-center">
+          <Package size={48} className="text-slate-300 dark:text-slate-600 mb-4" />
+          <p className="text-slate-600 dark:text-slate-400 text-lg font-medium">No order history</p>
+          <p className="text-slate-500 dark:text-slate-500 text-sm mt-1">Orders placed will appear here</p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -76,32 +77,32 @@ export default function Orders() {
             const Icon = info.icon;
 
             return (
-              <div key={order.orderId} className="glass-hover rounded-2xl p-6">
+              <div key={order.orderId} className="card-base p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 flex items-center justify-center flex-shrink-0">
-                      <Package size={22} className="text-indigo-300" />
+                    <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0">
+                      <Package size={22} className="text-slate-500 dark:text-slate-400" />
                     </div>
                     <div>
-                      <p className="font-semibold text-slate-100">{order.productName}</p>
-                      <p className="text-slate-500 text-xs">Order #{order.orderId} · {new Date(order.placedAt).toLocaleString()}</p>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{order.productName}</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">ID: #{order.orderId} &middot; {new Date(order.placedAt).toLocaleString()}</p>
                     </div>
                   </div>
-                  <span className={`status-badge border ${info.color}`}>
+                  <span className={`status-badge ${info.color}`}>
                     <Icon size={12} /> {info.label}
                   </span>
                 </div>
 
                 {/* Driver location */}
                 {live?.driverLocation && (
-                  <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-4 text-sm">
+                  <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-4 text-sm bg-slate-50/50 dark:bg-slate-900/50 -mx-6 -mb-6 px-6 py-4 rounded-b-xl">
                     <div>
-                      <p className="text-slate-500 text-xs mb-1 flex items-center gap-1"><Truck size={11} /> Driver Location</p>
-                      <p className="text-slate-300 font-mono text-xs">{live.driverLocation.lat.toFixed(5)}, {live.driverLocation.lng.toFixed(5)}</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold"><Truck size={12} /> Driver Coords</p>
+                      <p className="text-slate-700 dark:text-slate-300 font-mono text-xs bg-white dark:bg-slate-950 px-2 py-1 rounded inline-block border border-slate-200 dark:border-slate-800">{live.driverLocation.lat.toFixed(5)}, {live.driverLocation.lng.toFixed(5)}</p>
                     </div>
                     <div>
-                      <p className="text-slate-500 text-xs mb-1 flex items-center gap-1"><MapPin size={11} /> Delivery Target</p>
-                      <p className="text-slate-300 font-mono text-xs">{order.deliveryLocation.lat.toFixed(5)}, {order.deliveryLocation.lng.toFixed(5)}</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs mb-1.5 flex items-center gap-1.5 uppercase tracking-wider font-semibold"><MapPin size={12} /> Target Geofence</p>
+                      <p className="text-slate-700 dark:text-slate-300 font-mono text-xs bg-white dark:bg-slate-950 px-2 py-1 rounded inline-block border border-slate-200 dark:border-slate-800">{order.deliveryLocation.lat.toFixed(5)}, {order.deliveryLocation.lng.toFixed(5)}</p>
                     </div>
                   </div>
                 )}
