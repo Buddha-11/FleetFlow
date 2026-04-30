@@ -120,4 +120,16 @@ app.get('/order/:id/status', authenticateToken, async (req, res) => {
   }
 });
 
+// ─── Location Proxy (Driver App → Gateway → Location Service) ───────────────
+app.post('/location/update', async (req, res) => {
+  try {
+    const response = await axios.post('http://location-service:4000/update-location', req.body);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json({ error: 'Error forwarding location', details: err.response?.data || err.message });
+  }
+});
+
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'api-gateway' }));
+
 app.listen(3000, () => console.log("API Gateway running on 3000"));

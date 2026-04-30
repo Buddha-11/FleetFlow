@@ -201,6 +201,9 @@ app.get('/order/:id/status', async (req, res) => {
   }
 });
 
+// ─── Health Check ────────────────────────────────────────────────────────────
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'order-service' }));
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 async function start() {
   await initDB();

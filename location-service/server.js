@@ -43,6 +43,9 @@ app.get('/all-drivers', (req, res) => {
   res.json(driverLocations);
 });
 
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'location-service' }));
+
 app.listen(4000, '0.0.0.0', () => {
   console.log('Location service running on port 4000');
 });

@@ -75,6 +75,9 @@ app.get('/users/email/:email', async (req, res) => {
   }
 });
 
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'user-service' }));
+
 // Start services
 async function start() {
   await initDB();

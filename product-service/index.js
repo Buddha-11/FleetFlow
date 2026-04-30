@@ -106,6 +106,10 @@ app.get('/products', async (req, res) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'product-service' }));
+
+// Start services
 async function start() {
   await initDB();
 

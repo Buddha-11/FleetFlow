@@ -209,7 +209,7 @@
   function sendLocation(lat, lng) {
     setStatus('sending', '📡 Sending...');
 
-    const endpoint = NGROK_URL.replace(/\/$/, '') + '/update-location';
+    const endpoint = NGROK_URL.replace(/\/$/, '') + '/location/update';
 
     fetch(endpoint, {
       method: 'POST',

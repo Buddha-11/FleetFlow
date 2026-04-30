@@ -1,6 +1,8 @@
 CREATE DATABASE IF NOT EXISTS ecommerce;
 USE ecommerce;
 
+-- ─── Table Structures ────────────────────────────────────────────────────────
+
 CREATE TABLE Users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -31,3 +33,16 @@ CREATE TABLE Orders (
   FOREIGN KEY (user_id) REFERENCES Users(id),
   FOREIGN KEY (product_id) REFERENCES Products(id)
 );
+
+-- ─── Seed Data ───────────────────────────────────────────────────────────────
+
+-- Users (Password for both is '123')
+INSERT INTO Users (name, email, password, role) VALUES 
+('Admin', 'admin@test.com', '$2b$10$mkZ2dfVjo1Cfsl1V6s1Mp.vIOYj8CS7vLF70gSkiES86.wbUWK6ie', 'ADMIN'),
+('User', 'user@test.com', '$2b$10$Z36VPzgwM1UcRFZ8/ypgmuKMFxTHv.LhRZZPYJCVaFo8RLeH4oqhu', 'USER');
+
+-- Products
+INSERT INTO Products (name, price, description, stock) VALUES 
+('Gaming Laptop', 1499.99, 'High performance laptop with M3 chip', 10),
+('Wireless Mouse', 49.99, 'Ergonomic wireless mouse', 50),
+('Mechanical Keyboard', 129.99, 'RGB backlit mechanical keyboard', 25);

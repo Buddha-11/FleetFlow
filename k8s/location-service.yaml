@@ -1,0 +1,55 @@
+# ─── Location Service Deployment ──────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: location-service
+  labels:
+    app: location-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: location-service
+  template:
+    metadata:
+      labels:
+        app: location-service
+    spec:
+      containers:
+        - name: location-service
+          image: location-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4000
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+---
+# ─── Location Service (ClusterIP - Internal only, accessed via API Gateway) ───
+apiVersion: v1
+kind: Service
+metadata:
+  name: location-service
+spec:
+  type: ClusterIP
+  selector:
+    app: location-service
+  ports:
+    - port: 4000
+      targetPort: 4000

@@ -110,7 +110,7 @@ class MainActivity : AppCompatActivity() {
     private fun sendLocation(lat: Double, lng: Double) {
         Thread {
             try {
-                val url = URL("$baseUrl/update-location")
+                val url = URL("$baseUrl/location/update")
                 val conn = url.openConnection() as HttpURLConnection
 
                 conn.requestMethod = "POST"
