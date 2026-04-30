@@ -22,46 +22,80 @@ async function initDB() {
   pool = mysql.createPool(dbConfig);
 }
 
-// gRPC GetProduct
+// ─── gRPC: GetProduct ─────────────────────────────────────────────────────────
 async function GetProduct(call, callback) {
   try {
     const [rows] = await pool.query('SELECT * FROM Products WHERE id = ?', [call.request.id]);
     if (rows.length > 0) {
-      const product = rows[0];
+      const p = rows[0];
       callback(null, {
-        id: product.id.toString(),
-        name: product.name,
-        price: parseFloat(product.price),
-        description: product.description || ''
+        id: p.id.toString(),
+        name: p.name,
+        price: parseFloat(p.price),
+        description: p.description || '',
+        stock: p.stock
       });
     } else {
-      callback({
-        code: grpc.status.NOT_FOUND,
-        details: "Product not found"
-      });
+      callback({ code: grpc.status.NOT_FOUND, details: 'Product not found' });
     }
   } catch (err) {
-    callback({
-      code: grpc.status.INTERNAL,
-      details: err.message
-    });
+    callback({ code: grpc.status.INTERNAL, details: err.message });
   }
 }
 
-// REST Endpoints
+// ─── gRPC: DeductStock ────────────────────────────────────────────────────────
+async function DeductStock(call, callback) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      'SELECT stock FROM Products WHERE id = ? FOR UPDATE',
+      [call.request.id]
+    );
+
+    if (rows.length === 0) {
+      await conn.rollback();
+      return callback(null, { success: false, message: 'Product not found' });
+    }
+
+    if (rows[0].stock <= 0) {
+      await conn.rollback();
+      return callback(null, { success: false, message: 'Out of stock' });
+    }
+
+    await conn.query(
+      'UPDATE Products SET stock = stock - 1 WHERE id = ?',
+      [call.request.id]
+    );
+    await conn.commit();
+    callback(null, { success: true, message: 'Stock deducted' });
+  } catch (err) {
+    await conn.rollback();
+    callback({ code: grpc.status.INTERNAL, details: err.message });
+  } finally {
+    conn.release();
+  }
+}
+
+// ─── REST: Create Product (Admin) ─────────────────────────────────────────────
 app.post('/products', async (req, res) => {
-  const { name, price, description } = req.body;
+  const { name, price, description, stock } = req.body;
+  if (stock === undefined || stock < 0) {
+    return res.status(400).json({ error: 'stock is required and must be >= 0' });
+  }
   try {
     const [result] = await pool.query(
-      'INSERT INTO Products (name, price, description) VALUES (?, ?, ?)',
-      [name, price, description]
+      'INSERT INTO Products (name, price, description, stock) VALUES (?, ?, ?, ?)',
+      [name, price, description, stock]
     );
-    res.status(201).json({ id: result.insertId, name, price, description });
+    res.status(201).json({ id: result.insertId, name, price, description, stock });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+// ─── REST: Get All Products ───────────────────────────────────────────────────
 app.get('/products', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM Products');
@@ -71,20 +105,16 @@ app.get('/products', async (req, res) => {
   }
 });
 
-// Start services
+// ─── Start ────────────────────────────────────────────────────────────────────
 async function start() {
   await initDB();
-  
-  // REST Server
-  app.listen(3002, () => {
-    console.log("Product service REST running on 3002");
-  });
 
-  // gRPC Server
+  app.listen(3002, () => console.log('Product service REST running on 3002'));
+
   const server = new grpc.Server();
-  server.addService(grpcObject.ProductService.service, { GetProduct });
-  server.bindAsync("0.0.0.0:50052", grpc.ServerCredentials.createInsecure(), () => {
-    console.log("Product service gRPC running on 50052");
+  server.addService(grpcObject.ProductService.service, { GetProduct, DeductStock });
+  server.bindAsync('0.0.0.0:50052', grpc.ServerCredentials.createInsecure(), () => {
+    console.log('Product service gRPC running on 50052');
   });
 }
 

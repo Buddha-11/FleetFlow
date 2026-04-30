@@ -2,6 +2,7 @@ syntax = "proto3";
 
 service ProductService {
   rpc GetProduct (ProductRequest) returns (ProductResponse);
+  rpc DeductStock (DeductStockRequest) returns (DeductStockResponse);
 }
 
 message ProductRequest {
@@ -13,4 +14,14 @@ message ProductResponse {
   string name = 2;
   float price = 3;
   string description = 4;
+  int32 stock = 5;
+}
+
+message DeductStockRequest {
+  string id = 1;
+}
+
+message DeductStockResponse {
+  bool success = 1;
+  string message = 2;
 }

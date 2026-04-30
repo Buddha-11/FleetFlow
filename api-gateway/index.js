@@ -102,12 +102,21 @@ app.get('/products', authenticateToken, async (req, res) => {
 
 app.post('/order', authenticateToken, async (req, res) => {
   try {
-    // Add user ID from token to request body
+    // Inject userId from JWT — user cannot spoof their own ID
     req.body.userId = req.user.id;
     const response = await axios.post('http://order-service:3003/order', req.body);
     res.json(response.data);
   } catch (err) {
-    res.status(err.response?.status || 500).json({ error: "Error placing order", details: err.response?.data || err.message });
+    res.status(err.response?.status || 500).json({ error: 'Error placing order', details: err.response?.data || err.message });
+  }
+});
+
+app.get('/order/:id/status', authenticateToken, async (req, res) => {
+  try {
+    const response = await axios.get(`http://order-service:3003/order/${req.params.id}/status`);
+    res.json(response.data);
+  } catch (err) {
+    res.status(err.response?.status || 500).json({ error: 'Error fetching order status', details: err.response?.data || err.message });
   }
 });
 
