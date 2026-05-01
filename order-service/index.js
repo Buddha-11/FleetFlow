@@ -76,7 +76,7 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const DELIVERY_THRESHOLD_METERS = 50;
+const DELIVERY_THRESHOLD_METERS = 200;
 
 // ─── POST /order ──────────────────────────────────────────────────────────────
 app.post('/order', async (req, res) => {

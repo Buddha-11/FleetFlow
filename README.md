@@ -72,7 +72,7 @@ When an order is placed, the `Product Service` deducts stock.
 The system automatically transitions an order from `IN_TRANSIT` to `DELIVERED` without manual driver input.
 *   **How it works**: The `Order Service` polls the `Location Service` for the driver's current coordinates. It then compares this against the order's target `deliveryLocation`.
 *   **The Math**: We implemented the **Haversine Formula** to calculate the great-circle distance between two points on a sphere (the Earth) given their longitudes and latitudes.
-*   **Why?** This allows us to create a precise 50-meter geofence natively in the backend without relying on expensive, rate-limited external APIs (like Google Maps Distance Matrix).
+*   **Why?** This allows us to create a precise 200-meter geofence natively in the backend without relying on expensive, rate-limited external APIs (like Google Maps Distance Matrix).
 
 ### Stateless Role-Based Access Control (RBAC)
 Authentication is handled centrally at the API Gateway using JSON Web Tokens (JWT).
@@ -241,7 +241,74 @@ kubectl logs -f deployment/location-service
 GET http://localhost:30007/order/1/status
 Headers: Authorization: Bearer <USER_TOKEN>
 ```
-*   **Result 1 (`IN_TRANSIT`)**: If the driver is moving but > 50 meters away, the status dynamically returns `IN_TRANSIT`.
-*   **Result 2 (`DELIVERED`)**: Once the driver app's coordinates match the `deliveryLocation` coordinates (within 50m), the Haversine formula triggers. The database is updated, and the response returns `DELIVERED` automatically.
+*   **Result 1 (`IN_TRANSIT`)**: If the driver is moving but > 200 meters away, the status dynamically returns `IN_TRANSIT`.
+*   **Result 2 (`DELIVERED`)**: Once the driver app's coordinates match the `deliveryLocation` coordinates (within 200m), the Haversine formula triggers. The database is updated, and the response returns `DELIVERED` automatically.
 
 **System Automation**: This sequence demonstrates the end-to-end automation of the order lifecycle—integrating the API Gateway, internal gRPC orchestration, and real-time mobile GPS tracking to achieve automated fulfillment without manual intervention.
+
+---
+
+## ☸️ Operations Cheatsheet
+
+### Kubernetes Commands
+
+**1. Run / Start All Services**
+This applies all configurations in the `k8s` directory (deployments, services, ConfigMaps, HPAs).
+```bash
+kubectl apply -f k8s/
+```
+
+**2. Stop / Teardown All Services**
+This safely removes everything created from the `k8s` folder.
+```bash
+kubectl delete -f k8s/
+```
+
+**3. View Logs for a Service (Continuous Stream)**
+Use the `-f` flag to "follow" the logs in real-time. Press `Ctrl + C` to stop viewing.
+```bash
+kubectl logs -f deployment/api-gateway
+kubectl logs -f deployment/user-service
+kubectl logs -f deployment/product-service
+kubectl logs -f deployment/order-service
+kubectl logs -f deployment/location-service
+kubectl logs -f deployment/frontend
+```
+*(Tip: To get logs for the MySQL database pod, first run `kubectl get pods` to copy its exact name, then run `kubectl logs -f <pod-name>`)*
+
+**4. Check Service Status**
+```bash
+# See if your pods are running or crashing
+kubectl get pods
+
+# See the IP addresses and ports mapped
+kubectl get services
+```
+
+**5. Restart a Single Service**
+If you make code changes and rebuild an image locally, use this to force Kubernetes to pull the new container.
+```bash
+kubectl rollout restart deployment <service-name>
+```
+
+### 🐳 Docker Compose Commands (Alternative)
+If you prefer to bypass Kubernetes and run everything locally:
+
+**1. Run / Start All Services**
+```bash
+docker-compose up -d --build
+```
+
+**2. Stop / Teardown All Services**
+```bash
+docker-compose down
+```
+
+**3. View Logs**
+```bash
+# View logs for all services combined
+docker-compose logs -f
+
+# View logs for a specific service
+docker-compose logs -f api-gateway
+```
