@@ -8,6 +8,43 @@ This repository serves as a comprehensive showcase of modern backend architectur
 
 ## System Architecture & Theoretical Foundations
 
+```mermaid
+flowchart TB
+    subgraph External [External Clients]
+        Web[Web / Mobile Clients]
+        Driver[Android Driver App]
+    end
+
+    subgraph Cluster [Kubernetes Cluster]
+        Gateway[API Gateway<br>NodePort: 30007<br>JWT & RBAC]
+        
+        subgraph Services [Internal Microservices]
+            User[User Service<br>REST & gRPC]
+            Product[Product Service<br>REST & gRPC]
+            Order[Order Service<br>REST]
+            Location[Location Service<br>REST]
+        end
+        
+        DB[(MySQL Database)]
+    end
+
+    Web -- REST API --> Gateway
+    Driver -- Location Updates --> Gateway
+
+    Gateway -- REST --> User
+    Gateway -- REST --> Product
+    Gateway -- REST --> Order
+    Gateway -- REST --> Location
+
+    Order -. gRPC Validate .-> User
+    Order -. gRPC Deduct Stock .-> Product
+    Order -. REST Poll GPS .-> Location
+
+    User ==> DB
+    Product ==> DB
+    Order ==> DB
+```
+
 ### 1. Microservices Paradigm
 The system is divided into focused, independent services (`api-gateway`, `user-service`, `product-service`, `order-service`, `location-service`).
 *   **Why?** This allows independent scaling, isolated fault domains, and polyglot persistence. If the location tracking service experiences high load, it can be scaled independently of the user authentication service without bringing down the entire system.
