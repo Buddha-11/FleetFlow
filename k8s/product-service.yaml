@@ -31,6 +31,10 @@ spec:
               value: "root"
             - name: DB_NAME
               value: "ecommerce"
+            - name: KAFKA_BROKER
+              value: "kafka:9092"
+            - name: REDIS_HOST
+              value: "redis"
           resources:
             requests:
               memory: "128Mi"
