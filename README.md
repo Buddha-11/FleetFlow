@@ -1,8 +1,8 @@
-# Enterprise-Grade Delivery & E-Commerce Microservices
+# FleetFlow — Enterprise-Grade Delivery & E-Commerce Microservices
 
-A highly scalable, distributed system demonstrating the complete lifecycle of an e-commerce order—from secure purchasing and atomic inventory management to real-time driver tracking and automated geofenced delivery completion.
+A highly scalable, event-driven distributed system demonstrating the complete lifecycle of an e-commerce order—from secure purchasing and distributed Saga transactions to real-time driver tracking and automated geofenced delivery completion.
 
-This repository serves as a comprehensive showcase of modern backend architecture, utilizing **Node.js, gRPC, MySQL, Docker, and Kubernetes**.
+This repository serves as a comprehensive showcase of modern backend architecture, utilizing **Node.js, Kafka, Redis, gRPC, WebSockets, MySQL, Docker, and Kubernetes**.
 
 ---
 
@@ -11,108 +11,112 @@ This repository serves as a comprehensive showcase of modern backend architectur
 ```mermaid
 flowchart TB
     subgraph External [External Clients]
-        Web[Web / Mobile Clients]
+        Web[FleetFlow Web App<br>React / Vite]
         Driver[Android Driver App]
     end
 
     subgraph Cluster [Kubernetes Cluster]
-        Gateway[API Gateway<br>NodePort: 30007<br>JWT & RBAC]
+        Gateway[API Gateway<br>NodePort: 30007<br>JWT & Rate Limiting]
         
         subgraph Services [Internal Microservices]
             User[User Service<br>REST & gRPC]
             Product[Product Service<br>REST & gRPC]
-            Order[Order Service<br>REST]
+            Order[Order Service<br>REST & Circuit Breakers]
             Location[Location Service<br>REST]
+            Payment[Payment Service<br>Kafka Consumer]
         end
         
-        DB[(MySQL Database)]
+        subgraph Infrastructure [Data & Messaging]
+            DB[(MySQL)]
+            Cache[(Redis)]
+            Broker[[Apache Kafka]]
+            Tracing((Jaeger Tracing))
+        end
     end
 
-    Web -- REST API --> Gateway
-    Driver -- Location Updates --> Gateway
+    Web -->|REST / WebSocket| Gateway
+    Driver -->|Location Updates| Gateway
 
-    Gateway -- REST --> User
-    Gateway -- REST --> Product
-    Gateway -- REST --> Order
-    Gateway -- REST --> Location
+    Gateway -->|REST| User
+    Gateway -->|REST| Product
+    Gateway -->|REST| Order
+    Gateway -->|REST| Location
 
-    Order -. gRPC Validate .-> User
-    Order -. gRPC Deduct Stock .-> Product
-    Order -. REST Poll GPS .-> Location
+    Gateway -.->|Pub/Sub Socket.io| Cache
+    Gateway -.->|Rate Limiting| Cache
+    Gateway -.->|Consume Notifications| Broker
+
+    Order -.->|gRPC Validate Circuit Breaker| User
+    Order -.->|REST Poll GPS| Location
+
+    Order -->|Pub OrderCreated| Broker
+    Payment -->|Pub PaymentProcessed| Broker
+    Product -->|Pub StockDeducted| Broker
+    Product -.->|Cache-Aside| Cache
 
     User ==> DB
     Product ==> DB
     Order ==> DB
 ```
 
-### 1. Microservices Paradigm
-The system is divided into focused, independent services (`api-gateway`, `user-service`, `product-service`, `order-service`, `location-service`).
-*   **Why?** This allows independent scaling, isolated fault domains, and polyglot persistence. If the location tracking service experiences high load, it can be scaled independently of the user authentication service without bringing down the entire system.
+### 1. Saga Pattern & Event-Driven Architecture (Kafka)
+To handle distributed transactions reliably without locking databases, we use the **Choreography-based Saga Pattern** powered by Apache Kafka.
+*   **The Flow**: `OrderCreated` → `PaymentProcessed` → `StockDeducted` → `OrderDelivered`
+*   **Compensating Transactions**: If stock deduction fails after payment is confirmed, the system emits a `RefundPayment` compensating event to roll back the transaction and maintain eventual consistency.
 
-### 2. Hybrid Communication: REST + gRPC
-*   **REST (External & Gateway Proxies)**: Used for client-to-gateway communication. It's universally understood by web and mobile clients (like the Android Driver App).
-*   **gRPC (Internal Service-to-Service)**: The `Order Service` uses gRPC to communicate with `User Service` and `Product Service` for validation before placing an order.
-*   **Why?** gRPC uses Protocol Buffers (binary payload) over HTTP/2, making it significantly faster and more lightweight than JSON over REST. It also enforces strict data contracts between microservices, reducing integration bugs.
+### 2. High-Performance Caching & Rate Limiting (Redis)
+*   **Cache-Aside Pattern**: The `Product Service` caches product lists and details in Redis. Cache is automatically invalidated when stock changes via Kafka events.
+*   **Rate Limiting**: The `API Gateway` uses a sliding window rate limiter backed by Redis to protect the cluster from DDoS attacks, ensuring fair usage across all clients.
 
-### 3. Kubernetes Orchestration & Security Boundaries
+### 3. Resilience & Fault Tolerance (Circuit Breakers)
+*   **Opossum Circuit Breakers**: gRPC calls from the `Order Service` to the `User Service` are wrapped in circuit breakers. If the `User Service` becomes unresponsive, the circuit opens, failing fast to prevent cascading failures and thread pool exhaustion.
+
+### 4. Real-Time WebSockets (Socket.io + Redis Adapter)
+*   **Live Notifications**: When an order is delivered (via geofencing), the `API Gateway` consumes the `OrderDelivered` Kafka event and pushes it to the frontend via WebSockets.
+*   **Horizontal Scaling**: Using the `@socket.io/redis-adapter`, WebSockets can scale across multiple `API Gateway` replicas. The Redis Pub/Sub mechanism ensures the event reaches the correct user, regardless of which gateway pod they are connected to.
+
+### 5. Distributed Tracing & Observability (Jaeger)
+*   OpenTelemetry is integrated to trace requests as they jump across boundaries—from the API Gateway, to REST calls, to gRPC methods, to Kafka events, all visualized in **Jaeger**.
+
+### 6. Zero-Trust Kubernetes Orchestration
 The entire cluster is orchestrated using Kubernetes.
-*   **Zero-Trust Internal Network**: The system is designed so that **only the API Gateway is exposed externally** (via a K8s `NodePort`). All other services (`location`, `order`, `product`, `user`, `mysql`) are isolated within the cluster using `ClusterIP`.
-*   **Why?** This enforces a strict security boundary. Clients cannot bypass authentication or manipulate internal services directly. Even the Android driver app must route its raw GPS data through the API Gateway (`/location/update`), which securely proxies it to the internal `location-service`.
+*   **Security Boundary**: Only the API Gateway is exposed externally (via `NodePort`). All other services and databases are isolated using internal `ClusterIP`.
+*   **Self-Healing**: If Kafka or MySQL restarts, dependent microservices automatically retry connections instead of permanently failing, relying on K8s CrashLoopBackOff and liveness probes.
 
 ---
 
 ## Core Business Logic & Algorithms
 
-### Atomic Inventory Management (Concurrency Control)
-When an order is placed, the `Product Service` deducts stock.
-*   **The Problem**: If two users order the last item at the exact same millisecond, a race condition could result in negative stock.
-*   **The Solution**: We utilize MySQL's `SELECT ... FOR UPDATE` within a transaction. This creates a pessimistic row-level lock, forcing concurrent requests to queue up and ensuring strict data integrity.
-
 ### Real-Time Geofencing (The Haversine Formula)
 The system automatically transitions an order from `IN_TRANSIT` to `DELIVERED` without manual driver input.
 *   **How it works**: The `Order Service` polls the `Location Service` for the driver's current coordinates. It then compares this against the order's target `deliveryLocation`.
-*   **The Math**: We implemented the **Haversine Formula** to calculate the great-circle distance between two points on a sphere (the Earth) given their longitudes and latitudes.
-*   **Why?** This allows us to create a precise 200-meter geofence natively in the backend without relying on expensive, rate-limited external APIs (like Google Maps Distance Matrix).
+*   **The Math**: We implemented the **Haversine Formula** to calculate the great-circle distance between two points on a sphere given their coordinates. This creates a precise 200-meter geofence natively in the backend without expensive external APIs.
 
 ### Stateless Role-Based Access Control (RBAC)
 Authentication is handled centrally at the API Gateway using JSON Web Tokens (JWT).
-*   **Why?** JWTs are stateless. The API Gateway doesn't need to query a database to verify a session; it cryptographically verifies the token signature locally.
-*   **Roles**: The gateway enforces roles (`ADMIN` vs `USER`). Only Admins can inject new inventory, while Users can place orders.
+*   **Roles**: The gateway enforces `ADMIN` vs `USER` roles before proxying requests to internal microservices.
 
 ---
 
 ## Technology Stack
 
+*   **Frontend**: React (Vite) + TailwindCSS
 *   **Backend Framework**: Node.js with Express.js
+*   **Messaging & Event Streaming**: Apache Kafka (KRaft mode)
+*   **Caching & Pub/Sub**: Redis
 *   **RPC Framework**: gRPC & Protocol Buffers (`proto3`)
-*   **Database**: MySQL 8.0 (ConfigMap seeded, Persistent Volumes)
-*   **Containerization**: Docker
-*   **Orchestration**: Kubernetes (Deployments, Services, ConfigMaps, Liveness/Readiness Probes)
-*   **Mobile Client**: Android SDK (Kotlin) with Google Play Location Services
-*   **Tunneling**: ngrok (Exposes local K8s NodePort to the public internet)
+*   **Database**: MySQL 8.0 (Persistent Volumes)
+*   **Observability**: Jaeger Distributed Tracing
+*   **Containerization & Orchestration**: Docker + Kubernetes
+*   **Mobile Client**: Android SDK (Kotlin)
 
 ---
 
-## Database Schema Overview
-
-The MySQL database (`ecommerce`) is automatically seeded on startup using a Kubernetes `ConfigMap`.
-
-| Table | Core Columns | Relationships / Constraints |
-| :--- | :--- | :--- |
-| **Users** | `id`, `email`, `password` (bcrypt), `role` | `role` is ENUM('ADMIN', 'USER') |
-| **Products**| `id`, `name`, `price`, `stock` | `stock` cannot drop below 0 |
-| **Orders** | `id`, `status`, `delivery_lat`, `delivery_lng`, `driver_id`| FK to `Users(id)` and `Products(id)` |
-
-*Order Status Lifecycle: `PLACED` → `ASSIGNED` → `IN_TRANSIT` → `DELIVERED`*
-
----
-
-## Setup & Deployment Guide (For Evaluation)
+## Setup & Deployment Guide
 
 ### Prerequisites
 1.  **Docker Desktop** installed with **Kubernetes enabled**.
-2.  **ngrok** installed (for tunneling mobile traffic).
-3.  **Android Studio** or an Android device for the Driver App.
+2.  Node.js installed (for local frontend development).
 
 ### 1. Build Docker Images Locally
 Because we use `imagePullPolicy: Never` in Kubernetes to keep things local, you must build the images first:
@@ -122,129 +126,22 @@ docker build -t user-service:latest ./user-service
 docker build -t product-service:latest ./product-service
 docker build -t order-service:latest ./order-service
 docker build -t location-service:latest ./location-service
+docker build -t payment-service:latest ./payment-service
 docker build -t frontend:latest ./frontend
 ```
 
 ### 2. Deploy to Kubernetes
 Apply the configuration files to start the cluster:
 ```bash
-kubectl apply -f k8s/mysql-configmap.yaml
-kubectl apply -f k8s/mysql.yaml
-kubectl apply -f k8s/user-service.yaml
-kubectl apply -f k8s/product-service.yaml
-kubectl apply -f k8s/order-service.yaml
-kubectl apply -f k8s/location-service.yaml
-kubectl apply -f k8s/api-gateway.yaml
-kubectl apply -f k8s/frontend.yaml
-
-# Apply Horizontal Pod Autoscalers (Scaling)
-kubectl apply -f k8s/api-gateway-hpa.yaml
-kubectl apply -f k8s/user-service-hpa.yaml
-kubectl apply -f k8s/product-service-hpa.yaml
-kubectl apply -f k8s/order-service-hpa.yaml
-kubectl apply -f k8s/location-service-hpa.yaml
-kubectl apply -f k8s/frontend-hpa.yaml
+kubectl apply -f k8s/
 ```
 
-*Wait until all pods are running (`kubectl get pods`).*
+*Wait until all pods are running (`kubectl get pods`). Note: Some services may enter CrashLoopBackOff temporarily while waiting for Kafka and MySQL to initialize.*
 
-### 3. Expose API Gateway to Mobile
-Run ngrok to expose the Kubernetes `NodePort` (30007) securely:
-```bash
-ngrok http 30007
-```
-*Copy the `https://xxxx.ngrok-free.app` URL for the Android app.*
-
----
-
-## Comprehensive API Evaluation Demo
-
-Follow these exact steps to demonstrate the full system capabilities to the evaluator. The database is pre-seeded (Passwords are `123`), but creating new entities proves the flow works.
-
-### Phase 1: Admin & Inventory Management
-**1. Register an Admin Account**
-```http
-POST http://localhost:30007/register
-{
-  "name": "Admin", "email": "admin2@test.com", "password": "123", "role": "ADMIN"
-}
-```
-
-**2. Login as Admin** *(Copy the `token` from the response)*
-```http
-POST http://localhost:30007/login
-{ "email": "admin2@test.com", "password": "123" }
-```
-
-**3. Add Inventory (Requires ADMIN Token)**
-```http
-POST http://localhost:30007/admin/product
-Headers: Authorization: Bearer <ADMIN_TOKEN>
-
-{
-  "name": "Sony Headphones", "price": 299.99, "description": "Noise cancelling", "stock": 5
-}
-```
-**Technical Note**: The API Gateway uses a Role-Based Access Control (RBAC) middleware to verify the `role` claim within the JWT payload before forwarding requests to sensitive product management endpoints.
-
----
-
-### Phase 2: User Checkout & Order Orchestration
-**4. Register a User Account**
-```http
-POST http://localhost:30007/register
-{
-  "name": "User", "email": "user2@test.com", "password": "123", "role": "USER"
-}
-```
-
-**5. Login as User** *(Copy the `token` from the response)*
-```http
-POST http://localhost:30007/login
-{ "email": "user2@test.com", "password": "123" }
-```
-
-**6. Place the Order (Set Geofence Target)**
-*Set the `lat` and `lng` to your physical location (or wherever the driver app will start).*
-```http
-POST http://localhost:30007/order
-Headers: Authorization: Bearer <USER_TOKEN>
-
-{
-  "productId": 4, 
-  "deliveryLocation": { "lat": 25.4270, "lng": 81.7711 }
-}
-```
-**Workflow Insight**: Upon receiving this request, the API Gateway routes it to the `Order Service`. The `Order Service` then initiates high-performance **gRPC** calls to the `User` and `Product` services for validation and utilizes a **pessimistic database lock** to deduct stock before assigning the order to `driver1`.
-
----
-
-### Phase 3: Real-Time Mobile Tracking
-**7. Start the Driver App**
-1. Open the Android App.
-2. Enter the **ngrok URL** (`https://xxxx.ngrok-free.app`).
-3. Click **Enable Location Tracking**.
-
-**Security Insight**: The mobile app communicates with the public-facing API Gateway. The Gateway then securely proxies the coordinate data to the internal `Location Service`, which remains isolated from the public internet within the Kubernetes cluster.
-
-**8. Verify Logs (Optional)**
-```bash
-kubectl logs -f deployment/location-service
-```
-*You should see the driver coordinates streaming into the cluster.*
-
----
-
-### Phase 4: Automated Delivery Verification
-**9. Poll the Order Status**
-```http
-GET http://localhost:30007/order/1/status
-Headers: Authorization: Bearer <USER_TOKEN>
-```
-*   **Result 1 (`IN_TRANSIT`)**: If the driver is moving but > 200 meters away, the status dynamically returns `IN_TRANSIT`.
-*   **Result 2 (`DELIVERED`)**: Once the driver app's coordinates match the `deliveryLocation` coordinates (within 200m), the Haversine formula triggers. The database is updated, and the response returns `DELIVERED` automatically.
-
-**System Automation**: This sequence demonstrates the end-to-end automation of the order lifecycle—integrating the API Gateway, internal gRPC orchestration, and real-time mobile GPS tracking to achieve automated fulfillment without manual intervention.
+### 3. Access the Application
+*   **FleetFlow Web App**: `http://localhost:30080`
+*   **API Gateway**: `http://localhost:30007`
+*   **Jaeger Tracing UI**: First run `kubectl port-forward svc/jaeger 16686:16686`, then visit `http://localhost:16686`
 
 ---
 
@@ -252,63 +149,30 @@ Headers: Authorization: Bearer <USER_TOKEN>
 
 ### Kubernetes Commands
 
-**1. Run / Start All Services**
-This applies all configurations in the `k8s` directory (deployments, services, ConfigMaps, HPAs).
+**1. Apply Changes**
 ```bash
 kubectl apply -f k8s/
 ```
 
-**2. Stop / Teardown All Services**
-This safely removes everything created from the `k8s` folder.
+**2. Teardown All Services**
 ```bash
 kubectl delete -f k8s/
 ```
 
-**3. View Logs for a Service (Continuous Stream)**
-Use the `-f` flag to "follow" the logs in real-time. Press `Ctrl + C` to stop viewing.
+**3. View Logs for a Service**
 ```bash
 kubectl logs -f deployment/api-gateway
-kubectl logs -f deployment/user-service
-kubectl logs -f deployment/product-service
 kubectl logs -f deployment/order-service
-kubectl logs -f deployment/location-service
-kubectl logs -f deployment/frontend
 ```
-*(Tip: To get logs for the MySQL database pod, first run `kubectl get pods` to copy its exact name, then run `kubectl logs -f <pod-name>`)*
 
-**4. Check Service Status**
+**4. Check Cluster Status**
 ```bash
-# See if your pods are running or crashing
 kubectl get pods
-
-# See the IP addresses and ports mapped
 kubectl get services
 ```
 
-**5. Restart a Single Service**
+**5. Rolling Restart a Service**
 If you make code changes and rebuild an image locally, use this to force Kubernetes to pull the new container.
 ```bash
-kubectl rollout restart deployment <service-name>
-```
-
-### 🐳 Docker Compose Commands (Alternative)
-If you prefer to bypass Kubernetes and run everything locally:
-
-**1. Run / Start All Services**
-```bash
-docker-compose up -d --build
-```
-
-**2. Stop / Teardown All Services**
-```bash
-docker-compose down
-```
-
-**3. View Logs**
-```bash
-# View logs for all services combined
-docker-compose logs -f
-
-# View logs for a specific service
-docker-compose logs -f api-gateway
+kubectl rollout restart deployment api-gateway
 ```
