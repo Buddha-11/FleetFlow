@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingBag, Zap, Shield, MapPin, ArrowRight, Package, Truck, CheckCircle } from 'lucide-react';
+import { Truck, Zap, Shield, MapPin, ArrowRight, Package, CheckCircle, CreditCard, DatabaseZap, Radio } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Feature = ({ icon: Icon, title, desc }: { icon: (props: { size: number; className?: string }) => ReactElement, title: string, desc: string }) => (
@@ -15,12 +15,13 @@ const Feature = ({ icon: Icon, title, desc }: { icon: (props: { size: number; cl
   </div>
 );
 
-const Step = ({ icon: Icon, label }: { icon: (props: { size: number; className?: string }) => ReactElement, label: string }) => (
-  <div className="flex flex-col items-center gap-3">
+const Step = ({ icon: Icon, label, sub }: { icon: (props: { size: number; className?: string }) => ReactElement, label: string, sub: string }) => (
+  <div className="flex flex-col items-center gap-2 text-center">
     <div className="w-14 h-14 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center">
-      <Icon size={24} className="text-slate-700 dark:text-slate-300" />
+      <Icon size={24} className="text-indigo-600 dark:text-indigo-400" />
     </div>
-    <span className="text-xs text-slate-600 dark:text-slate-400 font-medium text-center">{label}</span>
+    <span className="text-xs text-slate-700 dark:text-slate-200 font-semibold">{label}</span>
+    <span className="text-[10px] text-slate-400 dark:text-slate-500">{sub}</span>
   </div>
 );
 
@@ -34,24 +35,24 @@ export default function Landing() {
         
         <div className="inline-flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-4 py-1.5 text-xs text-slate-600 dark:text-slate-300 font-medium mb-8 shadow-sm animate-fade-in">
           <Zap size={14} className="text-indigo-600 dark:text-indigo-400" />
-          Enterprise-Grade Kubernetes Architecture
+          Kafka · Redis · gRPC · Kubernetes
         </div>
 
         <h1 className="text-5xl sm:text-6xl font-extrabold text-slate-900 dark:text-white mb-6 animate-slide-up leading-tight tracking-tight max-w-4xl">
-          Intelligent E-Commerce with
+          Production-Grade Delivery with
           <br className="hidden sm:block" />
-          <span className="text-indigo-600 dark:text-indigo-400"> Automated Delivery</span>
+          <span className="text-indigo-600 dark:text-indigo-400"> Real-Time Automation</span>
         </h1>
 
         <p className="text-slate-600 dark:text-slate-400 text-lg sm:text-xl max-w-2xl mb-10 animate-slide-up leading-relaxed">
-          A robust microservices platform featuring real-time geofenced tracking, distributed state management, and strict role-based access control.
+          An event-driven microservices platform featuring async payment processing, Saga-pattern distributed transactions, Redis caching, and live WebSocket delivery alerts.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 animate-fade-in">
           {isAuthenticated ? (
             <>
               <Link to="/products" className="btn-primary flex items-center justify-center gap-2 text-base shadow-sm">
-                <ShoppingBag size={18} /> Browse Products <ArrowRight size={16} />
+                <Package size={18} /> Browse Products <ArrowRight size={16} />
               </Link>
               {isAdmin && (
                 <Link to="/admin" className="btn-secondary flex items-center justify-center gap-2 text-base">
@@ -71,17 +72,26 @@ export default function Landing() {
           )}
         </div>
 
-        {/* Flow diagram */}
-        <div className="mt-20 w-full max-w-3xl">
-          <p className="text-sm font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-8">System Workflow</p>
-          <div className="card-base px-8 py-8 flex flex-wrap sm:flex-nowrap items-center justify-center sm:justify-between gap-4 animate-fade-in">
-            <Step icon={ShoppingBag} label="Order Placed" />
-            <div className="hidden sm:block h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-            <Step icon={MapPin} label="Geofence Set" />
-            <div className="hidden sm:block h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-            <Step icon={Truck} label="Driver Tracked" />
-            <div className="hidden sm:block h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-            <Step icon={CheckCircle} label="Auto Delivered" />
+        {/* Saga Flow diagram */}
+        <div className="mt-20 w-full max-w-4xl">
+          <p className="text-sm font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-8">Saga Event Flow (Kafka)</p>
+          <div className="card-base px-6 py-8 flex flex-wrap sm:flex-nowrap items-start justify-center sm:justify-between gap-4 animate-fade-in">
+            <Step icon={Package} label="Order Placed" sub="PENDING" />
+            <div className="hidden sm:flex flex-col items-center gap-1 flex-1 pt-5">
+              <div className="h-px w-full bg-indigo-200 dark:bg-indigo-800" />
+              <span className="text-[9px] text-indigo-400 font-mono">OrderCreated →</span>
+            </div>
+            <Step icon={CreditCard} label="Payment Service" sub="PaymentProcessed" />
+            <div className="hidden sm:flex flex-col items-center gap-1 flex-1 pt-5">
+              <div className="h-px w-full bg-indigo-200 dark:bg-indigo-800" />
+              <span className="text-[9px] text-indigo-400 font-mono">OrderPaid →</span>
+            </div>
+            <Step icon={DatabaseZap} label="Stock Deducted" sub="StockDeducted" />
+            <div className="hidden sm:flex flex-col items-center gap-1 flex-1 pt-5">
+              <div className="h-px w-full bg-indigo-200 dark:bg-indigo-800" />
+              <span className="text-[9px] text-indigo-400 font-mono">GPS Geofence →</span>
+            </div>
+            <Step icon={CheckCircle} label="Auto Delivered" sub="WebSocket Push" />
           </div>
         </div>
       </section>
@@ -90,20 +100,23 @@ export default function Landing() {
       <section className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
         <div className="max-w-7xl mx-auto px-6 py-20">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Core Infrastructure</h2>
-            <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-lg">Designed for scale, reliability, and precision tracking.</p>
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Production-Ready Architecture</h2>
+            <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-lg">Every layer is engineered for scale, resilience, and observability.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Feature icon={Zap} title="gRPC Inter-Service" desc="Internal communication utilizes Protocol Buffers for low-latency, strictly-typed data exchange between isolated microservices." />
-            <Feature icon={Shield} title="Zero-Trust Architecture" desc="Only the API Gateway is exposed externally. Internal services are inaccessible from the public internet, secured by JWT RBAC." />
-            <Feature icon={MapPin} title="Haversine Formula" desc="Automated order fulfillment triggered by native spherical geometry calculations when drivers enter a 50m radius." />
+            <Feature icon={Zap} title="Kafka Saga Pattern" desc="Distributed transactions orchestrated via Kafka events. If stock fails post-payment, a compensating RefundPayment event rolls back the transaction automatically." />
+            <Feature icon={Shield} title="Rate Limiting & Circuit Breakers" desc="Redis-backed sliding window rate limiter protects the API Gateway. Opossum circuit breakers prevent cascading failures in gRPC calls." />
+            <Feature icon={Radio} title="Real-Time WebSockets" desc="Socket.io with Redis Pub/Sub adapter pushes live delivery alerts to the correct client pod, regardless of which Gateway instance they are connected to." />
+            <Feature icon={DatabaseZap} title="Redis Caching" desc="Product catalog reads are served from Redis with Cache-Aside strategy. Cache is automatically invalidated when stock changes via Kafka events." />
+            <Feature icon={MapPin} title="Haversine Geofencing" desc="Automated order fulfillment triggered by native spherical geometry calculations when driver enters a 200m radius of the delivery target." />
+            <Feature icon={Truck} title="Zero-Trust Kubernetes" desc="Only the API Gateway is exposed externally. All internal services are isolated via ClusterIP, secured by JWT RBAC enforced at the gateway layer." />
           </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-8 text-center text-slate-500 text-sm">
-        <span className="font-semibold text-slate-700 dark:text-slate-300">SwiftCart</span> — Enterprise Microservices Architecture
+        <span className="font-semibold text-slate-700 dark:text-slate-300">FleetFlow</span> — Production-Grade Delivery & E-Commerce Microservices
       </footer>
     </div>
   );

@@ -14,7 +14,7 @@ import AdminDashboard from './pages/AdminDashboard';
 
 export default function App() {
   return (
-    <ThemeProvider defaultTheme="light" storageKey="swiftcart-theme">
+    <ThemeProvider defaultTheme="light" storageKey="fleetflow-theme">
       <AuthProvider>
         <BrowserRouter>
           <div className="min-h-screen flex flex-col">

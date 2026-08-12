@@ -50,12 +50,12 @@ export default function Checkout() {
       const existing: LocalOrder[] = JSON.parse(localStorage.getItem('orders') || '[]');
       const newOrder: LocalOrder = {
         orderId, productId: product.id, productName: product.name,
-        status: 'ASSIGNED', placedAt: new Date().toISOString(),
+        status: 'PENDING', placedAt: new Date().toISOString(),
         deliveryLocation: coords,
       };
       localStorage.setItem('orders', JSON.stringify([newOrder, ...existing]));
 
-      toast.success(`Order #${orderId} placed! Driver assigned.`);
+      toast.success(`Order #${orderId} is processing! Payment service notified via Kafka.`);
       navigate('/orders');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Order failed';

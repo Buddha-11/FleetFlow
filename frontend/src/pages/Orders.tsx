@@ -1,14 +1,18 @@
 import { useState, useEffect, ReactElement } from 'react';
-import { RefreshCw, Package, MapPin, Truck, CheckCircle, Clock } from 'lucide-react';
+import { RefreshCw, Package, MapPin, Truck, CheckCircle, Clock, CreditCard, XCircle, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import client from '../api/client';
 import { LocalOrder, OrderStatusResponse } from '../types';
 
 const STATUS_STYLES: Record<string, { icon: (props: { size: number }) => ReactElement, color: string, label: string }> = {
-  PLACED:     { icon: Clock,         color: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',    label: 'Placed' },
-  ASSIGNED:   { icon: Package,       color: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20', label: 'Driver Assigned' },
-  IN_TRANSIT: { icon: Truck,         color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20',    label: 'In Transit' },
-  DELIVERED:  { icon: CheckCircle,   color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20', label: 'Delivered' },
+  PENDING:        { icon: Clock,         color: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',              label: 'Pending Payment' },
+  PAID:           { icon: CreditCard,    color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20',               label: 'Payment Confirmed' },
+  PLACED:         { icon: Clock,         color: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',              label: 'Placed' },
+  ASSIGNED:       { icon: Package,       color: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20',  label: 'Driver Assigned' },
+  IN_TRANSIT:     { icon: Truck,         color: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20',         label: 'In Transit' },
+  DELIVERED:      { icon: CheckCircle,   color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20', label: 'Delivered' },
+  CANCELLED:      { icon: XCircle,       color: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20',                    label: 'Cancelled' },
+  CANCELLED_STOCK:{ icon: AlertTriangle, color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:border-orange-500/20',  label: 'Cancelled (Stock)' },
 };
 
 export default function Orders() {
@@ -33,7 +37,6 @@ export default function Orders() {
         if (r.status === 'fulfilled') {
           const d = r.value.data;
           map[d.orderId] = d;
-          // Update localStorage status
           orders[i].status = d.status;
         }
       });
@@ -72,16 +75,18 @@ export default function Orders() {
         <div className="flex flex-col gap-4">
           {orders.map(order => {
             const live = statuses[order.orderId];
-            const status = live?.status || order.status || 'PLACED';
-            const info = STATUS_STYLES[status] || STATUS_STYLES.PLACED;
+            const status = live?.status || order.status || 'PENDING';
+            const info = STATUS_STYLES[status] || STATUS_STYLES.PENDING;
             const Icon = info.icon;
+
+            const isCancelled = status === 'CANCELLED' || status === 'CANCELLED_STOCK';
 
             return (
               <div key={order.orderId} className="card-base p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0">
-                      <Package size={22} className="text-slate-500 dark:text-slate-400" />
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 border ${isCancelled ? 'bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/20' : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
+                      <Package size={22} className={isCancelled ? 'text-red-400' : 'text-slate-500 dark:text-slate-400'} />
                     </div>
                     <div>
                       <p className="font-semibold text-slate-900 dark:text-slate-100">{order.productName}</p>
@@ -92,6 +97,14 @@ export default function Orders() {
                     <Icon size={12} /> {info.label}
                   </span>
                 </div>
+
+                {/* Saga Status Explanation */}
+                {(status === 'PENDING' || status === 'PAID') && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                    {status === 'PENDING' ? 'Payment Service is processing this order via Kafka...' : 'Product Service is confirming stock availability...'}
+                  </div>
+                )}
 
                 {/* Driver location */}
                 {live?.driverLocation && (

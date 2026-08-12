@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ShoppingBag, LayoutDashboard, Package, LogOut, LogIn, UserPlus, ShoppingCart, Menu, X, Sun, Moon } from 'lucide-react';
+import { Truck, LayoutDashboard, Package, LogOut, LogIn, UserPlus, ShoppingCart, Menu, X, Sun, Moon } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -24,10 +24,10 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm">
-              <ShoppingBag size={18} className="text-white" />
+              <Truck size={18} className="text-white" />
             </div>
             <span className="text-lg font-bold text-slate-900 dark:text-white">
-              SwiftCart
+              FleetFlow
             </span>
           </Link>
 
